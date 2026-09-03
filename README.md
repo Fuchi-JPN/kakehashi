@@ -1,5 +1,7 @@
 # Kakehashi（かけはし） Alpha 0.1
 
+![Kakehashi eye catch](Kakehashi_eye_catch.jpg)
+
 日英⇄英日 自動翻訳APIプロキシ。ハーネス（Kilo Code等）は `http://<host>:8090/v1` のみを参照する。
 
 ## 開発に至った経緯

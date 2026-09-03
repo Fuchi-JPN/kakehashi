@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kakehashi 管理UI</title>
+<link rel="stylesheet" href="/ui/style.css">
+</head>
+<body>
+<header>
+<h1>Kakehashi 管理UI</h1>
+<div><input id="apiKey" type="password" placeholder="APIキー (未設定時は不要)">
+<button onclick="saveKey()">保存</button></div>
+<nav>
+<button data-tab="dash" onclick="show('dash')">ダッシュボード</button>
+<button data-tab="prov" onclick="show('prov')">接続先LLM</button>
+<button data-tab="be" onclick="show('be')">翻訳モデル</button>
+<button data-tab="pr" onclick="show('pr')">翻訳指示</button>
+<button data-tab="log" onclick="show('log')">ログ</button>
+<button data-tab="srv" onclick="show('srv')">サーバー</button>
+</nav>
+</header>
+<main>
+<section id="tab-dash"><h2>ダッシュボード</h2>
+<div id="dashCards" class="cards"></div>
+<h3>接続先LLM（Egress）</h3><div id="dashEgress"></div>
+<h3>使用中の翻訳モデル（優先順）</h3><div id="dashChain"></div>
+<h3>レイテンシ平均・内訳</h3><div id="dashLatency"></div>
+<h3>最近のリクエスト</h3><div id="dashRecent"></div>
+<button onclick="loadDash()">更新</button></section>
+<section id="tab-prov" hidden>
+<h2>接続先LLM（上流）</h2>
+<div id="provList"></div>
+<h3>登録 / 編集</h3>
+<form id="provForm" onsubmit="return saveProvider(event)">
+<input name="id" placeholder="ID (空で自動)">
+<input name="name" placeholder="名前" required>
+<select name="protocol"><option value="openai">OpenAI互換</option><option value="anthropic">Anthropic</option></select>
+<input name="base_url" placeholder="接続先URL http://.../v1" required style="width:320px">
+<input name="api_key_env" placeholder="APIキー環境変数名 (任意)">
+<input name="api_key" placeholder="APIキー直接 (任意)" type="password">
+<input name="model" placeholder="モデルID / auto" required>
+<input name="timeout_s" type="number" value="300" min="5" max="900">
+<input name="temperature" placeholder="temperature (空=未設定)">
+<input name="max_tokens" placeholder="max_tokens (空=未設定)">
+<select name="merge_policy"><option value="override">override</option><option value="client_wins">client_wins</option></select>
+<button>保存</button>
+<button type="button" onclick="fetchModels()">モデル一覧取得</button>
+</form>
+<div>モデル候補: <select id="modelSel" onchange="pickModel()"></select>
+<input id="modelManual" placeholder="手入力 (一覧非対応時の救済)"></div>
+<pre id="provMsg"></pre>
+</section>
+<section id="tab-be" hidden><h2>翻訳モデル</h2><div id="beList"></div>
+<h3>登録 / 編集</h3>
+<form id="beForm" onsubmit="return saveBackend(event)">
+<input name="id" placeholder="ID (空で自動)">
+<input name="name" placeholder="名前">
+<select name="protocol"><option value="openai">OpenAI互換</option><option value="anthropic">Anthropic</option></select>
+<input name="base_url" placeholder="接続先URL http://.../v1" required style="width:300px">
+<input name="api_key_env" placeholder="APIキー環境変数名 (任意)">
+<input name="api_key" placeholder="APIキー直接 (任意)" type="password">
+<input name="model" placeholder="モデルID" required>
+<input name="timeout_s" type="number" value="30" min="5" max="300">
+<label><input name="enabled" type="checkbox" checked> 有効</label>
+<button>保存</button>
+<button type="button" onclick="fetchBackendModels()">モデル一覧取得</button>
+</form>
+<div>モデル候補: <select id="beModelSel" onchange="pickBackendModel()"></select>
+<input id="beModelManual" placeholder="手入力 (一覧非対応時の救済)"></div>
+<pre id="beMsg"></pre></section>
+<section id="tab-pr" hidden><h2>翻訳指示プロンプト</h2>
+<p>翻訳モデルに送信するシステムプロンプトです。空保存は無視されます。`__KXH_0__` 等のプレースホルダ保持指示は残してください。</p>
+<h3>日英（JA→EN）</h3><textarea id="prJa2en" rows="8" style="width:100%"></textarea>
+<h3>英日（EN→JA）</h3><textarea id="prEn2ja" rows="8" style="width:100%"></textarea>
+<h3>出力言語ガード（上流生成・空で無効）</h3><textarea id="prGuard" rows="4" style="width:100%"></textarea>
+<h3>コード内表示文字列の翻訳</h3>
+<div><label><input id="csEnabled" type="checkbox"> 道具呼び出し内の表示文字列（print文・help・エラー文等）を日英翻訳する</label>
+<label>最小文字数 <input id="csMinLen" type="number" value="8" min="1" max="200" style="width:60px"></label>
+<button onclick="saveCodeStrings()">保存</button></div>
+<pre id="csMsg"></pre>
+<div><button onclick="savePrompts()">保存</button>
+<button onclick="resetPrompts()">既定に戻す</button>
+<button onclick="loadPrompts()">再読込</button></div>
+<pre id="prMsg"></pre></section>
+<section id="tab-log" hidden><h2>ログ</h2><pre id="logCfg"></pre>
+<button onclick="loadLog()">更新</button>
+<label>記録する <input id="logEnabled" type="checkbox"></label>
+<button onclick="saveLog()">保存</button>
+<h3>最新エントリ</h3><pre id="logTail"></pre>
+<p style="color:#a00">注意: 原文が平文で残ります。外部共有時は内容確認してください。</p></section>
+<section id="tab-srv" hidden><h2>サーバー</h2><pre id="srv"></pre>
+<form onsubmit="return saveServer(event)" id="srvForm">
+<input name="host" placeholder="ホスト"><input name="port" placeholder="ポート番号" type="number">
+<input name="api_key" placeholder="APIキー (空=なし)" type="password"><button>保存</button></form></section>
+</main>
+<script src="/ui/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+[Unit]
+Description=Kakehashi Translation Proxy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=%h/src/kakehashi
+ExecStart=%h/src/kakehashi/.venv/bin/kakehashi serve
+Restart=always
+RestartSec=3
+Environment=KAKEHASHI_PORT=8090
+
+[Install]
+WantedBy=default.target
